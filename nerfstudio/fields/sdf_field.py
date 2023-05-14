@@ -272,9 +272,9 @@ class SDFField(Field):
                 if l == self.num_layers - 2:
                     if not self.config.inside_outside:
                         torch.nn.init.normal_(lin.weight, mean=np.sqrt(np.pi) / np.sqrt(dims[l]), std=0.0001)
-                        torch.nn.init.constant_(lin.bias, -self.config.bias)
+                        torch.nn.init.constant_(lin.bias, -0.01*self.config.bias)
                     else:
-                        torch.nn.init.normal_(lin.weight, mean=-np.sqrt(np.pi) / np.sqrt(dims[l]), std=0.0001)
+                        torch.nn.init.normal_(lin.weight, mean=-np.sqrt(0.05*np.pi) / np.sqrt(dims[l]), std=0.0001)
                         torch.nn.init.constant_(lin.bias, self.config.bias)
                 elif l == 0:
                     torch.nn.init.constant_(lin.bias, 0.0)
@@ -547,7 +547,7 @@ class SDFField(Field):
 
         return rgb
 
-    def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False):
+    def get_outputs(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sky_mask=None):
         """compute output of ray samples"""
         if ray_samples.camera_indices is None:
             raise AttributeError("Camera indices are not provided.")
@@ -575,6 +575,7 @@ class SDFField(Field):
             outputs=sdf, inputs=inputs, grad_outputs=d_output, create_graph=True, retain_graph=True, only_inputs=True
         )[0]
 
+        # sky_mask = sky_mask[:, None].repeat(1, ray_samples.shape[1]).view(-1)
         rgb = self.get_colors(inputs, directions_flat, gradients, geo_feature, camera_indices)
 
         density = self.laplace_density(sdf)
@@ -608,11 +609,14 @@ class SDFField(Field):
 
         return outputs
 
-    def forward(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False):
+    def forward(self, ray_samples: RaySamples, return_alphas=False, return_occupancy=False, sky_mask=None):
         """Evaluates the field at points along the ray.
 
         Args:
             ray_samples: Samples to evaluate field on.
         """
-        field_outputs = self.get_outputs(ray_samples, return_alphas=return_alphas, return_occupancy=return_occupancy)
+        field_outputs = self.get_outputs(ray_samples,
+                                         return_alphas=return_alphas,
+                                         return_occupancy=return_occupancy,
+                                         sky_mask=sky_mask)
         return field_outputs
